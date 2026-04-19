@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type PortalSection = "intake" | "requests" | "monitoring" | "artifacts";
+type PortalSection = "intake" | "requests" | "monitoring" | "administration" | "artifacts";
 
 type RequestSummary = {
   request_id: string;
@@ -43,6 +43,24 @@ type SubmitResult = {
   error?: string;
 };
 
+type AgentDefinition = {
+  agent_id: string;
+  name: string;
+  role: string;
+  goal: string;
+  backstory: string;
+  is_active: boolean;
+  is_locked: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type AgentDefinitionListResponse = {
+  items: AgentDefinition[];
+  total: number;
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export default function HomePage() {
@@ -60,6 +78,13 @@ export default function HomePage() {
   const [brdDraftLoading, setBrdDraftLoading] = useState(false);
   const [brdReviewLoading, setBrdReviewLoading] = useState(false);
   const [brdComment, setBrdComment] = useState("");
+  const [agentDefinitions, setAgentDefinitions] = useState<AgentDefinition[]>([]);
+  const [agentDefinitionsLoading, setAgentDefinitionsLoading] = useState(false);
+  const [agentDefinitionSaving, setAgentDefinitionSaving] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState("receptionist");
+  const [agentRole, setAgentRole] = useState("");
+  const [agentGoal, setAgentGoal] = useState("");
+  const [agentBackstory, setAgentBackstory] = useState("");
 
   const currentRequestId = useMemo(
     () => result?.request_id || requestStatus?.request_id,
@@ -92,8 +117,68 @@ export default function HomePage() {
     }
   };
 
+  const loadAgentDefinitions = async () => {
+    setAgentDefinitionsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents/definitions`);
+      if (!response.ok) {
+        return;
+      }
+      const data: AgentDefinitionListResponse = await response.json();
+      const items = data.items || [];
+      setAgentDefinitions(items);
+      if (items.length > 0) {
+        const preferred = items.find((item) => item.agent_id === selectedAgentId) || items[0];
+        setSelectedAgentId(preferred.agent_id);
+        setAgentRole(preferred.role);
+        setAgentGoal(preferred.goal);
+        setAgentBackstory(preferred.backstory);
+      }
+    } catch {
+      // Keep UI responsive when definitions endpoint is unavailable.
+    } finally {
+      setAgentDefinitionsLoading(false);
+    }
+  };
+
+  const saveAgentDefinition = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedAgentId) {
+      return;
+    }
+
+    setAgentDefinitionSaving(true);
+    setResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents/definitions/${selectedAgentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: agentRole,
+          goal: agentGoal,
+          backstory: agentBackstory,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setResult({ error: data?.detail || "Agent definition update failed" });
+      } else {
+        await loadAgentDefinitions();
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Network error" });
+    } finally {
+      setAgentDefinitionSaving(false);
+    }
+  };
+
   useEffect(() => {
     loadRequests();
+  }, []);
+
+  useEffect(() => {
+    loadAgentDefinitions();
   }, []);
 
   useEffect(() => {
@@ -227,6 +312,7 @@ export default function HomePage() {
     { key: "intake", label: "Intake" },
     { key: "requests", label: "Requests" },
     { key: "monitoring", label: "Monitoring" },
+    { key: "administration", label: "Administration" },
     { key: "artifacts", label: "Artifacts" },
   ];
 
@@ -467,6 +553,72 @@ export default function HomePage() {
                   {requestStatus?.brd_review_comment && (
                     <p><strong>last review comment:</strong> {requestStatus.brd_review_comment}</p>
                   )}
+                </>
+              )}
+            </section>
+          )}
+
+          {section === "administration" && (
+            <section className="card">
+              <h3>Agent Definitions</h3>
+              <p className="helper">Manage CrewAI role, goal, and backstory stored in SQLite.</p>
+
+              <button type="button" className="secondary" onClick={loadAgentDefinitions}>
+                {agentDefinitionsLoading ? "Refreshing..." : "Refresh Definitions"}
+              </button>
+
+              {agentDefinitions.length === 0 && <p className="helper">No agent definitions found.</p>}
+
+              {agentDefinitions.length > 0 && (
+                <>
+                  <label className="field">
+                    Agent
+                    <select
+                      value={selectedAgentId}
+                      onChange={(event) => {
+                        const nextId = event.target.value;
+                        setSelectedAgentId(nextId);
+                        const selected = agentDefinitions.find((item) => item.agent_id === nextId);
+                        if (selected) {
+                          setAgentRole(selected.role);
+                          setAgentGoal(selected.goal);
+                          setAgentBackstory(selected.backstory);
+                        }
+                      }}
+                    >
+                      {agentDefinitions.map((definition) => (
+                        <option key={definition.agent_id} value={definition.agent_id}>
+                          {definition.name} ({definition.agent_id})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <form onSubmit={saveAgentDefinition}>
+                    <label className="field">
+                      Role
+                      <input value={agentRole} onChange={(event) => setAgentRole(event.target.value)} required />
+                    </label>
+
+                    <label className="field">
+                      Goal
+                      <textarea value={agentGoal} onChange={(event) => setAgentGoal(event.target.value)} rows={4} required />
+                    </label>
+
+                    <label className="field">
+                      Backstory
+                      <textarea
+                        value={agentBackstory}
+                        onChange={(event) => setAgentBackstory(event.target.value)}
+                        rows={6}
+                        required
+                      />
+                    </label>
+
+                    <button type="submit" className="primary" disabled={agentDefinitionSaving}>
+                      {agentDefinitionSaving ? "Saving..." : "Save Definition"}
+                    </button>
+                  </form>
                 </>
               )}
             </section>

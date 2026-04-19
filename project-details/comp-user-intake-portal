@@ -1,0 +1,41 @@
+# Component Spec - User Intake Portal
+
+## Purpose
+The intake portal is the unified human-facing interface for intake, management, monitoring, and clarifications. Day 1 delivers basic submission. Day 2 introduces professional shell structure and clarification interaction.
+
+## Day 1 Baseline
+- Single intake form for unstructured requests.
+- Submit to backend request intake endpoint.
+- Display request id and initial status.
+
+## Day 2 Enhancements
+- Professional application shell:
+  - Left navigation menu.
+  - Top header with product identity and user context.
+  - Structured sections: Intake, Requests, Monitoring, Artifacts.
+- Intake section:
+  - Retain Day 1 submission fields.
+  - Display receptionist assessment result (type, extracted scope, confidence).
+  - Show clarification questions when confidence is low.
+  - Collect and submit clarification responses.
+- Requests section:
+  - Lightweight list of recent requests with status and confidence.
+- Monitoring section:
+  - Current workflow state badge.
+  - Last updated timestamp.
+  - Recent workflow events.
+- Artifacts section:
+  - Day 2 scaffold placeholder for BRD/architecture/delivery links.
+
+## Workflow States in UI
+- received
+- assessing
+- clarifying
+- assessment_complete
+
+## Day 2 Acceptance Criteria
+1. Existing Day 2 stories remain fully satisfied (classification and clarification loop).
+2. Professional navigation shell is visible and coherent on desktop and mobile.
+3. Clarification loop is executable end-to-end in the Intake section.
+4. Requests and Monitoring sections provide baseline operational visibility.
+5. Day 1 submission path remains functional without regression.

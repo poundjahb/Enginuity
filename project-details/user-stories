@@ -11,7 +11,8 @@ Each day closes with one or more completed user stories that are demoable, teste
 2. Day 2
 - Story: As Receptionist Agent, I classify request type and extract scope.
 - Story: As a requester, I receive clarification questions when confidence is low.
-- Outcome: Intake assessment and clarification loop working.
+- Story: As an operations user, I can use a professional portal shell with menu and sections for intake, requests, monitoring, and artifacts.
+- Outcome: Intake assessment and clarification loop working, with a professional unified Day 2 interface baseline.
 
 3. Day 3
 - Story: As Analyst Agent, I generate BRD draft from intake data.
