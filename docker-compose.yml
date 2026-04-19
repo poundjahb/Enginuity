@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./services/backend
+    container_name: eoh-backend
+    environment:
+      DATABASE_URL: sqlite:////data/eoh.db
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      PROFILE_NAME: ${PROFILE_NAME:-S}
+      MAX_WORKERS: ${MAX_WORKERS:-2}
+      HEAVY_WORKERS: ${HEAVY_WORKERS:-1}
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_data:/data
+    depends_on:
+      - redis
+
+  eoh-portal:
+    build:
+      context: ./services/eoh-portal
+    container_name: eoh-portal
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    container_name: eoh-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  backend_data:

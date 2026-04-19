@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EOH Request Envelope v1",
+  "type": "object",
+  "required": ["channel", "user_identity", "raw_text"],
+  "properties": {
+    "channel": {
+      "type": "string",
+      "enum": ["web", "email", "chat"]
+    },
+    "user_identity": {
+      "type": "string",
+      "minLength": 3
+    },
+    "business_context": {
+      "type": ["string", "null"]
+    },
+    "raw_text": {
+      "type": "string",
+      "minLength": 5
+    },
+    "priority_hint": {
+      "type": ["string", "null"],
+      "enum": ["low", "medium", "high", null]
+    }
+  },
+  "additionalProperties": false
+}

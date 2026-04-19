@@ -115,3 +115,52 @@ Current execution profile is optimized for limited local resources:
 
 EOH aims to reduce developer effort in repetitive analysis and coding cycles while improving delivery speed, consistency, and governance.  
 The long-term goal is controlled autonomy: AI agents do most delivery work, while humans provide strategic direction, approvals, and feedback.
+
+## Day 1 Implementation Status
+
+Implemented in this repository:
+- FastAPI backend with request intake and request status endpoints
+- SQLite persistence for request and workflow state baseline
+- Dependency health endpoint for remote Ollama (PC1)
+- Next.js EOH portal with a minimal request submission UI
+- Docker Compose stack for backend, portal, and Redis
+- Profile S runtime parameters (`max_workers=2`, `heavy_workers=1`)
+
+## Quickstart (Day 1)
+
+1. Copy environment file:
+
+```bash
+cp .env.example .env
+```
+
+2. Edit `.env` and set your PC1 endpoint:
+
+```bash
+OLLAMA_BASE_URL=http://<PC1_LAN_IP>:11434
+```
+
+3. Start the stack:
+
+```bash
+make dev
+```
+
+4. Open the apps:
+- EOH portal: `http://localhost:3000`
+- Backend API: `http://localhost:8000`
+
+## Day 1 API Endpoints
+
+- `GET /health`
+- `GET /health/dependencies`
+- `POST /requests`
+- `GET /requests/{request_id}`
+
+## Day 1 Expected Demo Flow
+
+1. Open EOH portal.
+2. Submit an unstructured request.
+3. Receive `request_id` and `status`.
+4. Query status using `GET /requests/{request_id}`.
+5. If PC1 is down, intake returns a blocked dependency error (`503`).
