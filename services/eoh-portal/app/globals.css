@@ -1,0 +1,266 @@
+:root {
+  --bg: #edf1f5;
+  --bg-panel: #f9fbfd;
+  --surface: #ffffff;
+  --surface-alt: #f4f8fc;
+  --text: #1e293b;
+  --text-muted: #5b6778;
+  --border: #d4dce8;
+  --accent: #0e7490;
+  --accent-strong: #0b5f76;
+  --success: #0f766e;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --shadow: 0 8px 28px rgba(8, 24, 44, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 10% 0%, #d6e7f5 0%, transparent 45%),
+    radial-gradient(circle at 90% 0%, #d5f0ec 0%, transparent 40%),
+    var(--bg);
+  color: var(--text);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.portal-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: linear-gradient(175deg, #0f172a, #10263f);
+  color: #e5edf6;
+  padding: 1.4rem 1rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar h1 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sidebar p {
+  margin: 0.3rem 0 1.4rem;
+  color: #9ab0c7;
+  font-size: 0.82rem;
+}
+
+.menu-button {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid transparent;
+  text-align: left;
+  background: transparent;
+  color: #d4dfeb;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.menu-button:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menu-button.active {
+  background: linear-gradient(120deg, #0ea5b7, #0284a8);
+  color: white;
+}
+
+.main-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.9rem 1.5rem;
+}
+
+.topbar h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.topbar p {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.user-chip {
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.content {
+  padding: 1.25rem;
+}
+
+.grid-two {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.7rem;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  padding: 0.58rem 0.65rem;
+  background: #fff;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  border: 0;
+  border-radius: 0.55rem;
+  padding: 0.62rem 0.8rem;
+  cursor: pointer;
+}
+
+button.primary {
+  color: #fff;
+  background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+}
+
+button.secondary {
+  color: var(--text);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.status-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-clarifying {
+  color: #7c2d12;
+  background: #ffedd5;
+}
+
+.status-assessment_complete {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.status-received,
+.status-assessing {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.helper {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.events {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.artifact-draft {
+  white-space: pre-wrap;
+  background: #f8fbff;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  padding: 0.8rem;
+  max-height: 360px;
+  overflow: auto;
+  font-size: 0.86rem;
+}
+
+.requests-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.requests-table th,
+.requests-table td {
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding: 0.52rem;
+  font-size: 0.89rem;
+}
+
+@media (max-width: 980px) {
+  .portal-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    padding-bottom: 0.7rem;
+  }
+
+  .grid-two {
+    grid-template-columns: 1fr;
+  }
+}

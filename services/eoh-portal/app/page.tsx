@@ -1,27 +1,113 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type PortalSection = "intake" | "requests" | "monitoring" | "artifacts";
+
+type RequestSummary = {
+  request_id: string;
+  user_identity: string;
+  status: string;
+  request_type?: string | null;
+  confidence_score?: number | null;
+  updated_at: string;
+};
+
+type RequestListResponse = {
+  items: RequestSummary[];
+  total: number;
+};
+
+type RequestStatus = {
+  request_id: string;
+  status: string;
+  request_type?: string | null;
+  extracted_scope?: string | null;
+  confidence_score?: number | null;
+  clarification_questions: string[];
+  clarification_answers: Record<string, string>;
+  workflow_events: string[];
+  brd_draft?: string | null;
+  brd_status?: string | null;
+  brd_review_comment?: string | null;
+  updated_at: string;
+};
 
 type SubmitResult = {
   request_id?: string;
   status?: string;
+  request_type?: string;
+  extracted_scope?: string;
+  confidence_score?: number;
+  clarification_questions?: string[];
   error?: string;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export default function HomePage() {
+  const [section, setSection] = useState<PortalSection>("intake");
   const [userIdentity, setUserIdentity] = useState("owner@org.local");
   const [businessContext, setBusinessContext] = useState("Internal automation");
   const [rawText, setRawText] = useState("");
   const [priorityHint, setPriorityHint] = useState("medium");
+  const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [clarificationLoading, setClarificationLoading] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
+  const [requestStatus, setRequestStatus] = useState<RequestStatus | null>(null);
+  const [requests, setRequests] = useState<RequestSummary[]>([]);
+  const [brdDraftLoading, setBrdDraftLoading] = useState(false);
+  const [brdReviewLoading, setBrdReviewLoading] = useState(false);
+  const [brdComment, setBrdComment] = useState("");
+
+  const currentRequestId = useMemo(
+    () => result?.request_id || requestStatus?.request_id,
+    [result?.request_id, requestStatus?.request_id],
+  );
+
+  const loadRequests = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/requests`);
+      if (!response.ok) {
+        return;
+      }
+      const data: RequestListResponse = await response.json();
+      setRequests(data.items || []);
+    } catch {
+      // Keep UI available if listing endpoint is temporarily unavailable.
+    }
+  };
+
+  const loadRequestStatus = async (requestId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/requests/${requestId}`);
+      if (!response.ok) {
+        return;
+      }
+      const data: RequestStatus = await response.json();
+      setRequestStatus(data);
+    } catch {
+      // Keep existing status state when backend is temporarily unavailable.
+    }
+  };
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  useEffect(() => {
+    if (currentRequestId) {
+      loadRequestStatus(currentRequestId);
+    }
+  }, [currentRequestId]);
 
   const submitRequest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setResult(null);
+    setRequestStatus(null);
+    setClarificationAnswers({});
 
     try {
       const response = await fetch(`${API_BASE_URL}/requests`, {
@@ -40,7 +126,17 @@ export default function HomePage() {
       if (!response.ok) {
         setResult({ error: data?.detail?.message || data?.detail || "Request failed" });
       } else {
-        setResult({ request_id: data.request_id, status: data.status });
+        setResult({
+          request_id: data.request_id,
+          status: data.status,
+          request_type: data.request_type,
+          extracted_scope: data.extracted_scope,
+          confidence_score: data.confidence_score,
+          clarification_questions: data.clarification_questions || [],
+        });
+        setSection("intake");
+        await loadRequestStatus(data.request_id);
+        await loadRequests();
       }
     } catch (error) {
       setResult({ error: error instanceof Error ? error.message : "Network error" });
@@ -49,53 +145,334 @@ export default function HomePage() {
     }
   };
 
+  const submitClarifications = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentRequestId) {
+      return;
+    }
+
+    setClarificationLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/requests/${currentRequestId}/clarifications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: clarificationAnswers }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setResult({ error: data?.detail || "Clarification submission failed" });
+      } else {
+        setRequestStatus(data);
+        await loadRequests();
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Network error" });
+    } finally {
+      setClarificationLoading(false);
+    }
+  };
+
+  const generateBrdDraft = async () => {
+    if (!currentRequestId) {
+      return;
+    }
+
+    setBrdDraftLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/requests/${currentRequestId}/brd/generate`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResult({ error: data?.detail || "BRD generation failed" });
+      } else {
+        await loadRequestStatus(currentRequestId);
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Network error" });
+    } finally {
+      setBrdDraftLoading(false);
+    }
+  };
+
+  const submitBrdReview = async (decision: "approve" | "reject") => {
+    if (!currentRequestId) {
+      return;
+    }
+
+    setBrdReviewLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/requests/${currentRequestId}/brd/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, comment: brdComment || null }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResult({ error: data?.detail || "BRD review failed" });
+      } else {
+        setRequestStatus(data);
+        setBrdComment("");
+        await loadRequests();
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Network error" });
+    } finally {
+      setBrdReviewLoading(false);
+    }
+  };
+
+  const menuItems: Array<{ key: PortalSection; label: string }> = [
+    { key: "intake", label: "Intake" },
+    { key: "requests", label: "Requests" },
+    { key: "monitoring", label: "Monitoring" },
+    { key: "artifacts", label: "Artifacts" },
+  ];
+
+  const statusLabel = requestStatus?.status || result?.status || "not-started";
+
   return (
-    <main style={{ maxWidth: 780, margin: "2rem auto", padding: "1.5rem" }}>
-      <h1 style={{ margin: 0 }}>Engineering Operations Hub</h1>
-      <p style={{ color: "#4b5563" }}>Day 1 - Request Intake</p>
+    <main className="portal-layout">
+      <aside className="sidebar">
+        <h1>Engineering Operations Hub</h1>
+        <p>Day 2 Unified Portal</p>
+        {menuItems.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`menu-button ${section === item.key ? "active" : ""}`}
+            onClick={() => setSection(item.key)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </aside>
 
-      <form onSubmit={submitRequest} style={{ display: "grid", gap: "0.75rem", background: "white", padding: "1rem", borderRadius: 10, border: "1px solid #d1d5db" }}>
-        <label>
-          User Identity
-          <input value={userIdentity} onChange={(e) => setUserIdentity(e.target.value)} required style={{ width: "100%" }} />
-        </label>
+      <section className="main-panel">
+        <header className="topbar">
+          <div>
+            <h2>Platform Workspace</h2>
+            <p>Management, monitoring, intake, and clarification in one interface</p>
+          </div>
+          <div className="user-chip">Signed in: {userIdentity}</div>
+        </header>
 
-        <label>
-          Business Context
-          <input value={businessContext} onChange={(e) => setBusinessContext(e.target.value)} style={{ width: "100%" }} />
-        </label>
+        <div className="content">
+          {section === "intake" && (
+            <div className="grid-two">
+              <section className="card">
+                <h3>Request Intake</h3>
+                <p className="helper">Submit a request for receptionist assessment and clarifications when needed.</p>
 
-        <label>
-          Priority
-          <select value={priorityHint} onChange={(e) => setPriorityHint(e.target.value)} style={{ width: "100%" }}>
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-          </select>
-        </label>
+                <form onSubmit={submitRequest}>
+                  <label className="field">
+                    User Identity
+                    <input value={userIdentity} onChange={(e) => setUserIdentity(e.target.value)} required />
+                  </label>
 
-        <label>
-          Unstructured Request
-          <textarea value={rawText} onChange={(e) => setRawText(e.target.value)} required rows={6} style={{ width: "100%" }} />
-        </label>
+                  <label className="field">
+                    Business Context
+                    <input value={businessContext} onChange={(e) => setBusinessContext(e.target.value)} />
+                  </label>
 
-        <button disabled={loading} type="submit" style={{ padding: "0.7rem", borderRadius: 8, border: "none", background: "#0f766e", color: "white", cursor: "pointer" }}>
-          {loading ? "Submitting..." : "Submit Request"}
-        </button>
-      </form>
+                  <label className="field">
+                    Priority
+                    <select value={priorityHint} onChange={(e) => setPriorityHint(e.target.value)}>
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                    </select>
+                  </label>
 
-      {result && (
-        <section style={{ marginTop: "1rem", background: "white", padding: "1rem", borderRadius: 10, border: "1px solid #d1d5db" }}>
-          {result.error ? (
-            <p style={{ color: "#b91c1c", margin: 0 }}>Error: {result.error}</p>
-          ) : (
-            <>
-              <p style={{ margin: "0 0 0.25rem" }}><strong>request_id:</strong> {result.request_id}</p>
-              <p style={{ margin: 0 }}><strong>status:</strong> {result.status}</p>
-            </>
+                  <label className="field">
+                    Unstructured Request
+                    <textarea value={rawText} onChange={(e) => setRawText(e.target.value)} required rows={7} />
+                  </label>
+
+                  <button disabled={loading} type="submit" className="primary">
+                    {loading ? "Submitting..." : "Submit Request"}
+                  </button>
+                </form>
+              </section>
+
+              <section className="card">
+                <h3>Intake Status</h3>
+                {result?.error && <p className="error">Error: {result.error}</p>}
+
+                {currentRequestId && (
+                  <>
+                    <p><strong>request_id:</strong> {currentRequestId}</p>
+                    <p>
+                      <strong>status:</strong>{" "}
+                      <span className={`status-badge status-${statusLabel}`}>{statusLabel}</span>
+                    </p>
+                    <p><strong>request type:</strong> {requestStatus?.request_type || result?.request_type || "pending"}</p>
+                    <p><strong>scope:</strong> {requestStatus?.extracted_scope || result?.extracted_scope || "pending"}</p>
+                    <p>
+                      <strong>confidence:</strong>{" "}
+                      {typeof (requestStatus?.confidence_score ?? result?.confidence_score) === "number"
+                        ? `${Math.round((requestStatus?.confidence_score ?? result?.confidence_score ?? 0) * 100)}%`
+                        : "pending"}
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => currentRequestId && loadRequestStatus(currentRequestId)}
+                    >
+                      Refresh Status
+                    </button>
+                  </>
+                )}
+
+                {!currentRequestId && <p className="helper">Submit a request to start Day 2 assessment.</p>}
+              </section>
+
+              {requestStatus?.status === "clarifying" && requestStatus.clarification_questions.length > 0 && (
+                <section className="card">
+                  <h3>Clarification Chat</h3>
+                  <p className="helper">Answer the questions to complete receptionist assessment.</p>
+                  <form onSubmit={submitClarifications}>
+                    {requestStatus.clarification_questions.map((question) => (
+                      <label key={question} className="field">
+                        {question}
+                        <input
+                          required
+                          value={clarificationAnswers[question] || ""}
+                          onChange={(e) =>
+                            setClarificationAnswers((prev) => ({
+                              ...prev,
+                              [question]: e.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    ))}
+                    <button type="submit" disabled={clarificationLoading} className="primary">
+                      {clarificationLoading ? "Submitting..." : "Submit Clarifications"}
+                    </button>
+                  </form>
+                </section>
+              )}
+            </div>
           )}
-        </section>
-      )}
+
+          {section === "requests" && (
+            <section className="card">
+              <h3>Recent Requests</h3>
+              <p className="helper">Management view of latest request activity.</p>
+              <button type="button" className="secondary" onClick={loadRequests}>Refresh List</button>
+              <table className="requests-table">
+                <thead>
+                  <tr>
+                    <th>Request</th>
+                    <th>User</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Confidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map((request) => (
+                    <tr key={request.request_id}>
+                      <td>{request.request_id.slice(0, 8)}</td>
+                      <td>{request.user_identity}</td>
+                      <td><span className={`status-badge status-${request.status}`}>{request.status}</span></td>
+                      <td>{request.request_type || "pending"}</td>
+                      <td>{typeof request.confidence_score === "number" ? `${Math.round(request.confidence_score * 100)}%` : "-"}</td>
+                    </tr>
+                  ))}
+                  {requests.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>No requests yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {section === "monitoring" && (
+            <section className="card">
+              <h3>Workflow Monitoring</h3>
+              <p className="helper">Real-time state and event trail for the active request.</p>
+              {!requestStatus && <p className="helper">Submit an intake request to populate monitoring telemetry.</p>}
+              {requestStatus && (
+                <>
+                  <p><strong>Current state:</strong> <span className={`status-badge status-${requestStatus.status}`}>{requestStatus.status}</span></p>
+                  <p><strong>Last updated:</strong> {new Date(requestStatus.updated_at).toLocaleString()}</p>
+                  <h4>Recent Events</h4>
+                  <ul className="events">
+                    {requestStatus.workflow_events.map((event) => (
+                      <li key={event}>{event}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+          )}
+
+          {section === "artifacts" && (
+            <section className="card">
+              <h3>Artifacts</h3>
+              <p className="helper">Day 3 implementation: generate BRD draft and process reviewer approval decision.</p>
+
+              {!currentRequestId && <p className="helper">Submit and complete intake flow first to generate BRD.</p>}
+
+              {currentRequestId && (
+                <>
+                  <p><strong>request_id:</strong> {currentRequestId}</p>
+                  <p><strong>brd status:</strong> {requestStatus?.brd_status || "not-generated"}</p>
+
+                  {(requestStatus?.status === "assessment_complete" || requestStatus?.status === "brd_rejected") && (
+                    <button type="button" className="primary" disabled={brdDraftLoading} onClick={generateBrdDraft}>
+                      {brdDraftLoading ? "Generating BRD..." : "Generate BRD Draft"}
+                    </button>
+                  )}
+
+                  {requestStatus?.brd_draft && (
+                    <>
+                      <h4>BRD Draft</h4>
+                      <pre className="artifact-draft">{requestStatus.brd_draft}</pre>
+                    </>
+                  )}
+
+                  {requestStatus?.brd_status === "pending_approval" && (
+                    <>
+                      <label className="field">
+                        Review Comment
+                        <textarea value={brdComment} onChange={(event) => setBrdComment(event.target.value)} rows={3} />
+                      </label>
+                      <div style={{ display: "flex", gap: "0.6rem" }}>
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={brdReviewLoading}
+                          onClick={() => submitBrdReview("approve")}
+                        >
+                          Approve BRD
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={brdReviewLoading}
+                          onClick={() => submitBrdReview("reject")}
+                        >
+                          Reject BRD
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {requestStatus?.brd_review_comment && (
+                    <p><strong>last review comment:</strong> {requestStatus.brd_review_comment}</p>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
