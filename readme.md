@@ -148,7 +148,7 @@ make dev
 
 4. Open the apps:
 - EOH portal: `http://localhost:3000`
-- Backend API: `http://localhost:8000`
+- Backend API: `http://localhost:8080`
 
 ## Day 1 API Endpoints
 
