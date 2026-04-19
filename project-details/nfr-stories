@@ -1,0 +1,68 @@
+You are right to flag this: NFR and platform setup should be explicit stories, not implicit assumptions. I’ll give you a revised structure with a dedicated NFR/enabler lane and show which items must be done upfront versus progressively.Great point. NFR and foundation work must be explicit user stories, otherwise the prototype will stall around Day 6-10.
+
+Short answer: do both.
+- Baseline NFR/enabler stories must be completed early.
+- Hardening NFR stories can progress alongside feature delivery.
+
+Recommended model: two-lane backlog
+- Lane A: functional stories (your current day-by-day flow).
+- Lane B: NFR/enabler stories (platform, repo, CI, security, observability, governance).
+
+NFR stories to add immediately:
+
+1. Day 1 (must-have baseline)
+- As platform admin, I can provision Ollama runtime with approved model list.
+- As engineer, I can bootstrap mono-repo/project structure with service folders and coding standards.
+- As team, I can run local development with one command.
+
+2. Day 2
+- As platform, I can persist workflow state and artifacts in a structured store.
+- As security lead, I can enforce RBAC roles for agent actions.
+- As developer, I can use environment-based config management.
+
+3. Day 3
+- As devops, I can run CI on each PR with lint, unit tests, and build checks.
+- As reviewer, I can see required PR template with requirement traceability fields.
+- As platform, I can block merges if mandatory checks fail.
+
+4. Day 4
+- As security lead, I can store secrets in a secure vault mechanism.
+- As compliance lead, I can capture audit logs for agent prompts, tool calls, and decisions.
+- As architect, I can enforce architecture decision record format.
+
+5. Day 5
+- As QA lead, I can execute baseline regression suite automatically.
+- As release manager, I can deploy to staging from CI pipeline.
+- As ops, I can view health checks for orchestrator and model service.
+
+6. Day 6-10 (progressive)
+- Performance budgets for response and generation latency.
+- Retry/idempotency for workflow node failures.
+- Error taxonomy and dead-letter handling.
+- Backup/restore for workflow and artifacts.
+
+7. Day 11-15 (progressive hardening)
+- Risk scoring policy for low/medium/high change types.
+- Change-impact analysis for delta features.
+- Release gate policy matrix with auto/manual approvals.
+- KPI dashboard: lead time, failure rate, human intervention count.
+
+How to integrate with your current plan:
+- Keep your functional stories unchanged.
+- Add 1-2 NFR stories per day as mandatory acceptance gates.
+- No functional story is “done” unless linked NFR checks pass.
+
+Updated Definition of Done:
+1. Functional acceptance criteria passed.
+2. NFR acceptance criteria for that story passed.
+3. CI checks green and branch policy satisfied.
+4. Required artifact links recorded.
+5. Gate approvals recorded where required.
+
+If you want, I can generate a revised 15-day board in a single table format with:
+- Story ID
+- Functional/NFR tag
+- Owner
+- Dependency
+- Day target
+- Acceptance criteria.
