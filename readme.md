@@ -1,4 +1,4 @@
-I’ll draft a repository-ready README description aligned with the decisions we’ve locked: EOH unified portal, LangGraph async workflow, CrewAI roles, Ollama on PC1, and Profile S operating constraints.# Engineering Operations Hub (EOH)
+# Engineering Operations Hub (EOH)
 
 Engineering Operations Hub (EOH) is an on-prem, agentic software engineering system designed to transform unstructured business requests into working software with minimal human effort.  
 It combines specialized AI agents, deterministic workflow orchestration, and GitHub-native delivery to automate analysis, architecture, planning, coding, review, and staged deployment.
