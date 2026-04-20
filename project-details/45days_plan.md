@@ -1,3 +1,9 @@
+> SUPERSEDED NOTICE (START)
+>
+> This planning document is retained for historical reference.
+> Current implementation planning is now architecture-first and maintained in:
+> `project-details/implementation_roadmap.md`
+
 ## Plan: Post-Day-15 LLM Selection
 
 Schedule frontend-driven LLM model selection as a post-Day-15 enhancement (Day 16+), while keeping the existing Day 1–Day 15 commitments unchanged and stable.
@@ -90,3 +96,9 @@ Schedule frontend-driven LLM model selection as a post-Day-15 enhancement (Day 1
 1. Access control for model switching post-Day-15: Option A expose to all authenticated users; Option B restrict to admin/operator roles (recommended).
 2. Auditability: persist `changed_by` and `changed_at` for model switch events.
 3. UX safety: disable model switch while dependency health is unhealthy.
+
+> SUPERSEDED NOTICE (END)
+>
+> End of historical planning document.
+> This file is superseded by:
+> `project-details/implementation_roadmap.md`

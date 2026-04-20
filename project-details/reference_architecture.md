@@ -29,11 +29,12 @@ Build an on-prem Autonomous Software Engineering Hub where business users submit
 1. Receptionist Agent: intake normalization, initial completeness and ambiguity checks.
 2. Analyst Agent: BRD drafting, requirement clarification loops, acceptance criteria.
 3. Architect Agent: system requirements, architecture draft, ADR production, NFR mapping.
-4. PM Agent: backlog decomposition, dependency planning, milestone generation.
-5. Developer Agent: implementation, unit tests, docs, commit and PR creation.
-6. Reviewer Agent: static analysis, architecture compliance checks, code review, fix suggestions.
-7. Release Agent: staging deploy, release notes, production promotion under policy.
-8. Learning Agent: postmortem extraction, prompt and policy improvement signals.
+4. Security and Risk Agent: threat modeling, security acceptance criteria, vulnerability triage, and risk disposition recommendations.
+5. PM Agent: backlog decomposition, dependency planning, milestone generation.
+6. Developer Agent: implementation, unit tests, docs, commit and PR creation.
+7. Reviewer Agent: static analysis, architecture compliance checks, code review, fix suggestions.
+8. Release Agent: staging deploy, release notes, production promotion under policy.
+9. Learning Agent: postmortem extraction, prompt and policy improvement signals.
 
 **5. End-to-End Workflow (LangGraph State Graph)**
 - Request_Received
@@ -44,9 +45,14 @@ Build an on-prem Autonomous Software Engineering Hub where business users submit
 - Architecture_Draft
 - Architecture_Validation_Loop
 - Architecture_Approval_Gate
+- Threat_Modeling
+- Security_Acceptance_Criteria_Definition
+- Security_Risk_Gate
 - Execution_Planning
 - Dev_Implementation
 - Automated_Review_and_Test
+- Vulnerability_Triage
+- Risk_Disposition_Gate
 - Staging_Deployment
 - Feedback_Collection
 - Production_Approval_Gate
@@ -56,8 +62,9 @@ Build an on-prem Autonomous Software Engineering Hub where business users submit
 **6. Mandatory Human Gates**
 - BRD approval by business owner or delegated senior.
 - Architecture approval by senior developer or architecture board.
+- Security risk approval for medium/high-risk changes before production.
 - Production release approval for medium/high-risk changes.
-- Automatic bypass allowed only for predefined low-risk change class.
+- Automatic bypass allowed only for predefined low-risk change class with passing threat-model and scan policy thresholds.
 
 **7. Data and Knowledge Architecture**
 - Structured state DB for workflow status and agent outputs.
@@ -118,9 +125,9 @@ Why this takes time:
 - Early schema decisions affect every downstream artifact and traceability chain.
 
 **Days 16-30: Core Workflow and Agent Behaviors**
-- Implement Intake, Analyst, Architect, PM agents.
+- Implement Intake, Analyst, Architect, Security and Risk, PM agents.
 - Add clarification loops and confidence thresholds.
-- Build approval gates and escalation routes.
+- Build approval gates and escalation routes, including security risk gates.
 - Start traceability mapping BRD to architecture and task decomposition.
 
 Why this takes time:
@@ -130,7 +137,7 @@ Why this takes time:
 **Days 31-45: Code and Delivery Automation**
 - Implement Developer, Reviewer, and Release agents.
 - Integrate GitHub branches, PR templates, CI checks, and staging deployments.
-- Enforce quality gates and policy-driven approvals.
+- Enforce quality gates, vulnerability triage, and policy-driven approvals.
 - Add failure handling, retry logic, and rollback playbooks.
 
 Why this takes time:

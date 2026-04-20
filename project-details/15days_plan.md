@@ -1,3 +1,9 @@
+> SUPERSEDED NOTICE (START)
+>
+> This planning document is retained for historical reference.
+> Current implementation planning is now architecture-first and maintained in:
+> `project-details/implementation_roadmap.md`
+
 # 15‑Day MVP Plan — Clean Day-by-Day Grouping
 
 ## Overall Goal
@@ -143,3 +149,9 @@ A user submits a natural-language feature request, agents produce BRD + architec
 
 15 days is enough for a working prototype, not for production-grade autonomy.  
 This proves value and flow reliability; governance, security, and scale follow in the next phase.
+
+> SUPERSEDED NOTICE (END)
+>
+> End of historical planning document.
+> This file is superseded by:
+> `project-details/implementation_roadmap.md`
