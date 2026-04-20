@@ -164,3 +164,26 @@ make dev
 3. Receive `request_id` and `status`.
 4. Query status using `GET /requests/{request_id}`.
 5. If PC1 is down, intake returns a blocked dependency error (`503`).
+
+## Analyst Validation Suite
+
+Use the backend integration suite to validate Analyst BRD generation behavior without requiring live model calls.
+
+1. Install backend dev dependencies:
+
+```bash
+cd services/backend
+/home/habibpoundja/pasf/.venv/bin/python -m pip install --break-system-packages -r requirements-dev.txt
+```
+
+2. Run only Analyst validation tests:
+
+```bash
+make backend-test-analyst
+```
+
+Covered checks:
+- Happy path: request intake, BRD generation, review reject, regenerate
+- Guardrails: invalid state and missing request handling
+- Dependency errors: missing analyst model in Ollama
+- Agent failure mapping: malformed analyst response surfaced as `502`
