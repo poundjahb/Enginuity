@@ -14,6 +14,13 @@ from app.agents.receptionist import (
     DEFAULT_RECEPTIONIST_GOAL,
     DEFAULT_RECEPTIONIST_ROLE,
 )
+from app.agents.analyst import (
+    DEFAULT_ANALYST_BACKSTORY,
+    DEFAULT_ANALYST_GOAL,
+    DEFAULT_ANALYST_ROLE,
+    DEFAULT_ANALYST_TASK_DESCRIPTION_TEMPLATE as _ANALYST_TASK_TMPL,
+    DEFAULT_ANALYST_TASK_EXPECTED_OUTPUT as _ANALYST_TASK_OUTPUT,
+)
 
 DEFAULT_RECEPTIONIST_TASK_ID = "receptionist-assessment"
 DEFAULT_RECEPTIONIST_TASK_NAME = "Assess Intake Request"
@@ -66,35 +73,51 @@ def _ensure_requests_schema_columns() -> None:
 
 def _seed_default_agent_definitions() -> None:
     with engine.begin() as connection:
-        existing = connection.execute(
-            text("SELECT agent_id FROM agent_definitions WHERE agent_id = :agent_id"),
-            {"agent_id": "receptionist"},
-        ).fetchone()
-        if existing:
-            return
-
-        connection.execute(
-            text(
-                """
-                INSERT INTO agent_definitions (
-                    agent_id, name, role, goal, backstory, llm_model_override, is_active, is_locked, version
-                ) VALUES (
-                    :agent_id, :name, :role, :goal, :backstory, :llm_model_override, :is_active, :is_locked, :version
-                )
-                """
+        for agent_id, name, role, goal, backstory in [
+            (
+                "receptionist",
+                "Receptionist Agent",
+                DEFAULT_RECEPTIONIST_ROLE,
+                DEFAULT_RECEPTIONIST_GOAL,
+                DEFAULT_RECEPTIONIST_BACKSTORY,
             ),
-            {
-                "agent_id": "receptionist",
-                "name": "Receptionist Agent",
-                "role": DEFAULT_RECEPTIONIST_ROLE,
-                "goal": DEFAULT_RECEPTIONIST_GOAL,
-                "backstory": DEFAULT_RECEPTIONIST_BACKSTORY,
-                "llm_model_override": None,
-                "is_active": True,
-                "is_locked": False,
-                "version": 1,
-            },
-        )
+            (
+                "analyst",
+                "Business Analyst Agent",
+                DEFAULT_ANALYST_ROLE,
+                DEFAULT_ANALYST_GOAL,
+                DEFAULT_ANALYST_BACKSTORY,
+            ),
+        ]:
+            existing = connection.execute(
+                text("SELECT agent_id FROM agent_definitions WHERE agent_id = :agent_id"),
+                {"agent_id": agent_id},
+            ).fetchone()
+            if existing:
+                continue
+
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO agent_definitions (
+                        agent_id, name, role, goal, backstory, llm_model_override, is_active, is_locked, version
+                    ) VALUES (
+                        :agent_id, :name, :role, :goal, :backstory, :llm_model_override, :is_active, :is_locked, :version
+                    )
+                    """
+                ),
+                {
+                    "agent_id": agent_id,
+                    "name": name,
+                    "role": role,
+                    "goal": goal,
+                    "backstory": backstory,
+                    "llm_model_override": None,
+                    "is_active": True,
+                    "is_locked": False,
+                    "version": 1,
+                },
+            )
 
 
 def _ensure_agent_definitions_schema_columns() -> None:
@@ -139,63 +162,85 @@ def _ensure_task_definitions_schema_columns() -> None:
                 existing_columns.add(column_name)
 
 
-def _seed_default_task_definitions() -> None:
-    with engine.begin() as connection:
-        existing = connection.execute(
-            text(
-                """
-                SELECT task_id
-                FROM task_definitions
-                WHERE task_id = :task_id
-                  AND agent_id = :agent_id
-                """
-            ),
-            {"task_id": DEFAULT_RECEPTIONIST_TASK_ID, "agent_id": "receptionist"},
-        ).fetchone()
-        if existing:
-            return
+DEFAULT_ANALYST_TASK_ID = "analyst-brd-draft"
+DEFAULT_ANALYST_TASK_NAME = "Draft Business Requirements Document"
 
-        connection.execute(
-            text(
-                """
-                INSERT INTO task_definitions (
-                    task_id,
-                    agent_id,
-                    name,
-                    description_template,
-                    expected_output,
-                    async_execution,
-                    execution_order,
-                    is_active,
-                    is_locked,
-                    version
-                ) VALUES (
-                    :task_id,
-                    :agent_id,
-                    :name,
-                    :description_template,
-                    :expected_output,
-                    :async_execution,
-                    :execution_order,
-                    :is_active,
-                    :is_locked,
-                    :version
-                )
-                """
-            ),
-            {
-                "task_id": DEFAULT_RECEPTIONIST_TASK_ID,
-                "agent_id": "receptionist",
-                "name": DEFAULT_RECEPTIONIST_TASK_NAME,
-                "description_template": DEFAULT_RECEPTIONIST_TASK_DESCRIPTION_TEMPLATE,
-                "expected_output": DEFAULT_RECEPTIONIST_TASK_EXPECTED_OUTPUT,
-                "async_execution": False,
-                "execution_order": 1,
-                "is_active": True,
-                "is_locked": False,
-                "version": 1,
-            },
-        )
+
+def _seed_default_task_definitions() -> None:
+    _TASK_SEEDS = [
+        {
+            "task_id": DEFAULT_RECEPTIONIST_TASK_ID,
+            "agent_id": "receptionist",
+            "name": DEFAULT_RECEPTIONIST_TASK_NAME,
+            "description_template": DEFAULT_RECEPTIONIST_TASK_DESCRIPTION_TEMPLATE,
+            "expected_output": DEFAULT_RECEPTIONIST_TASK_EXPECTED_OUTPUT,
+        },
+        {
+            "task_id": DEFAULT_ANALYST_TASK_ID,
+            "agent_id": "analyst",
+            "name": DEFAULT_ANALYST_TASK_NAME,
+            "description_template": _ANALYST_TASK_TMPL,
+            "expected_output": _ANALYST_TASK_OUTPUT,
+        },
+    ]
+
+    with engine.begin() as connection:
+        for seed in _TASK_SEEDS:
+            existing = connection.execute(
+                text(
+                    """
+                    SELECT task_id
+                    FROM task_definitions
+                    WHERE task_id = :task_id
+                      AND agent_id = :agent_id
+                    """
+                ),
+                {"task_id": seed["task_id"], "agent_id": seed["agent_id"]},
+            ).fetchone()
+            if existing:
+                continue
+
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO task_definitions (
+                        task_id,
+                        agent_id,
+                        name,
+                        description_template,
+                        expected_output,
+                        async_execution,
+                        execution_order,
+                        is_active,
+                        is_locked,
+                        version
+                    ) VALUES (
+                        :task_id,
+                        :agent_id,
+                        :name,
+                        :description_template,
+                        :expected_output,
+                        :async_execution,
+                        :execution_order,
+                        :is_active,
+                        :is_locked,
+                        :version
+                    )
+                    """
+                ),
+                {
+                    "task_id": seed["task_id"],
+                    "agent_id": seed["agent_id"],
+                    "name": seed["name"],
+                    "description_template": seed["description_template"],
+                    "expected_output": seed["expected_output"],
+                    "async_execution": False,
+                    "execution_order": 1,
+                    "is_active": True,
+                    "is_locked": False,
+                    "version": 1,
+                },
+            )
 
 
 @app.on_event("startup")

@@ -29,11 +29,12 @@ Build an on-prem Autonomous Software Engineering Hub where business users submit
 1. Receptionist Agent: intake normalization, initial completeness and ambiguity checks.
 2. Analyst Agent: BRD drafting, requirement clarification loops, acceptance criteria.
 3. Architect Agent: system requirements, architecture draft, ADR production, NFR mapping.
-4. PM Agent: backlog decomposition, dependency planning, milestone generation.
-5. Developer Agent: implementation, unit tests, docs, commit and PR creation.
-6. Reviewer Agent: static analysis, architecture compliance checks, code review, fix suggestions.
-7. Release Agent: staging deploy, release notes, production promotion under policy.
-8. Learning Agent: postmortem extraction, prompt and policy improvement signals.
+4. Security/Risk Agent: threat modeling, vulnerability triage, risk scoring, mitigation recommendations. Runs in parallel with or after Architecture draft; findings feed into Architecture approval gate.
+5. PM Agent: backlog decomposition, dependency planning, milestone generation.
+6. Developer Agent: implementation, unit tests, docs, commit and PR creation.
+7. Reviewer Agent: static analysis, architecture compliance checks, code review, fix suggestions.
+8. Release Agent: staging deploy, release notes, production promotion under policy.
+9. Learning Agent: postmortem extraction, prompt and policy improvement signals.
 
 **5. End-to-End Workflow (LangGraph State Graph)**
 - Request_Received
@@ -42,6 +43,7 @@ Build an on-prem Autonomous Software Engineering Hub where business users submit
 - BRD_Clarification_Loop
 - BRD_Approval_Gate
 - Architecture_Draft
+- Security_Risk_Assessment
 - Architecture_Validation_Loop
 - Architecture_Approval_Gate
 - Execution_Planning

@@ -18,9 +18,11 @@ from app.schemas import (
     RequestStatus,
     RequestSummary,
 )
-from app.services.health import check_ollama_health, check_receptionist_model_available
+from app.services.health import check_ollama_health, check_receptionist_model_available, check_analyst_model_available
 from app.agents.receptionist import ReceptionistAgentError
+from app.agents.analyst import AnalystAgentError, format_brd_markdown
 from app.workflow.receptionist_flow import run_receptionist_flow
+from app.workflow.analyst_flow import run_analyst_flow
 
 router = APIRouter(prefix="/requests", tags=["requests"])
 
@@ -70,24 +72,6 @@ def _status_payload(record: RequestRecord) -> RequestStatus:
         brd_review_comment=record.brd_review_comment,
         created_at=record.created_at,
         updated_at=record.updated_at,
-    )
-
-
-def _build_brd_draft(record: RequestRecord) -> str:
-    return (
-        f"# BRD Draft for Request {record.request_id}\n\n"
-        "## 1. Business Objective\n"
-        f"{record.business_context or 'Business objective to be clarified with requester.'}\n\n"
-        "## 2. Problem Statement\n"
-        f"{record.raw_text}\n\n"
-        "## 3. Proposed Scope\n"
-        f"{record.extracted_scope or 'Scope not provided.'}\n\n"
-        "## 4. Request Classification\n"
-        f"{record.request_type or 'unclassified'}\n\n"
-        "## 5. Acceptance Criteria\n"
-        "- Functional behavior is clearly defined and testable.\n"
-        "- Stakeholders can validate expected outcome in staging.\n"
-        "- Delivery can be traced to this approved BRD.\n"
     )
 
 
@@ -200,7 +184,7 @@ def submit_clarifications(request_id: str, payload: ClarificationSubmit, db: Ses
 
 
 @router.post("/{request_id}/brd/generate", response_model=BrdGenerateResponse)
-def generate_brd(request_id: str, db: Session = Depends(get_db)):
+async def generate_brd(request_id: str, db: Session = Depends(get_db)):
     record = db.query(RequestRecord).filter(RequestRecord.request_id == request_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -208,7 +192,48 @@ def generate_brd(request_id: str, db: Session = Depends(get_db)):
     if record.status not in {"assessment_complete", "brd_rejected"}:
         raise HTTPException(status_code=400, detail="BRD generation requires completed assessment")
 
-    record.brd_draft = _build_brd_draft(record)
+    healthy, error = await check_ollama_health()
+    if not healthy:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "PC1 Ollama dependency is unavailable.",
+                "blocked_reason": error or "unknown",
+            },
+        )
+
+    model_ready, model_error = await check_analyst_model_available()
+    if not model_ready:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "message": "Configured analyst model is unavailable in Ollama.",
+                "blocked_reason": model_error or "unknown",
+            },
+        )
+
+    clarification_answers: dict[str, str] = _load_json(record.clarification_answers, {})
+
+    try:
+        brd = await run_in_threadpool(
+            run_analyst_flow,
+            record.raw_text,
+            record.business_context,
+            record.request_type,
+            record.extracted_scope,
+            clarification_answers or None,
+        )
+    except AnalystAgentError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": "Analyst agent execution failed.",
+                "blocked_reason": str(exc),
+            },
+        ) from exc
+
+    brd_text = format_brd_markdown(record.request_id, brd)
+    record.brd_draft = brd_text
     record.brd_status = "pending_approval"
     record.status = "brd_pending_approval"
     record.brd_review_comment = None
