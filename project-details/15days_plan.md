@@ -1,5 +1,7 @@
 # 15‑Day MVP Plan — Clean Day-by-Day Grouping
 
+> **Note:** This document is superseded by [`implementation_roadmap.md`](implementation_roadmap.md), which consolidates all plans into a single architecture-first roadmap. This file is kept for historical reference only.
+
 ## Overall Goal
 
 **Prototype Target (Day 15)**  

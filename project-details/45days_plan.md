@@ -1,5 +1,7 @@
 ## Plan: Post-Day-15 LLM Selection
 
+> **Note:** This document is superseded by [`implementation_roadmap.md`](implementation_roadmap.md). The LLM selection feature described here is tracked as a post-Phase 8 deferred item in the new roadmap. This file is kept for historical reference only.
+
 Schedule frontend-driven LLM model selection as a post-Day-15 enhancement (Day 16+), while keeping the existing Day 1–Day 15 commitments unchanged and stable.
 
 **Steps**

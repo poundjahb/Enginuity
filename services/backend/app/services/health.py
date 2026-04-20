@@ -46,3 +46,19 @@ async def check_receptionist_model_available() -> tuple[bool, str | None]:
         f"Configured RECEPTIONIST_MODEL '{configured_model}' is not available in Ollama. "
         f"Installed models: {', '.join(models) if models else 'none'}.",
     )
+
+
+async def check_analyst_model_available() -> tuple[bool, str | None]:
+    models, error = await fetch_ollama_models()
+    if error:
+        return False, error
+
+    configured_model = normalize_model_name(settings.analyst_model)
+    if configured_model in models:
+        return True, None
+
+    return (
+        False,
+        f"Configured ANALYST_MODEL '{configured_model}' is not available in Ollama. "
+        f"Installed models: {', '.join(models) if models else 'none'}.",
+    )
