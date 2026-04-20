@@ -45,6 +45,25 @@ def _extract_json_payload(raw_output: str) -> dict[str, Any]:
 def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(payload)
 
+    request_type = normalized.get("request_type")
+    if request_type is None:
+        normalized["request_type"] = "feature-request"
+    elif not isinstance(request_type, str):
+        normalized["request_type"] = str(request_type)
+
+    confidence_score = normalized.get("confidence_score")
+    if confidence_score is None:
+        normalized["confidence_score"] = 0.5
+    elif isinstance(confidence_score, bool):
+        normalized["confidence_score"] = 1.0 if confidence_score else 0.0
+    elif isinstance(confidence_score, (int, float)):
+        normalized["confidence_score"] = float(confidence_score)
+    else:
+        try:
+            normalized["confidence_score"] = float(str(confidence_score).strip())
+        except (TypeError, ValueError):
+            normalized["confidence_score"] = 0.5
+
     extracted_scope = normalized.get("extracted_scope")
     if isinstance(extracted_scope, list):
         normalized["extracted_scope"] = ", ".join(str(item) for item in extracted_scope)
@@ -62,6 +81,12 @@ def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
         normalized["clarification_questions"] = []
     else:
         normalized["clarification_questions"] = [str(item) for item in clarification_questions if item is not None]
+
+    rationale_summary = normalized.get("rationale_summary")
+    if rationale_summary is None:
+        normalized["rationale_summary"] = ""
+    elif not isinstance(rationale_summary, str):
+        normalized["rationale_summary"] = str(rationale_summary)
 
     return normalized
 
@@ -85,6 +110,12 @@ DEFAULT_RECEPTIONIST_TASK_DESCRIPTION_TEMPLATE = (
     "priority_hint: {priority_hint}\n"
 )
 DEFAULT_RECEPTIONIST_TASK_EXPECTED_OUTPUT = "Compact single JSON object only. No markdown, no prose."
+
+
+def normalize_model_name(model_name: str) -> str:
+    if model_name.startswith("ollama/"):
+        return model_name.split("/", 1)[1]
+    return model_name
 
 
 class ReceptionistAgent(DBConfiguredAgent):
