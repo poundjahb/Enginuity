@@ -26,3 +26,6 @@ build/
 
 node_modules/
 .next/
+
+# SQLite database files
+*.db
