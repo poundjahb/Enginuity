@@ -49,6 +49,7 @@ type AgentDefinition = {
   role: string;
   goal: string;
   backstory: string;
+  llm_model_override?: string | null;
   is_active: boolean;
   is_locked: boolean;
   version: number;
@@ -61,7 +62,28 @@ type AgentDefinitionListResponse = {
   total: number;
 };
 
+type TaskDefinition = {
+  task_id: string;
+  agent_id: string;
+  name: string;
+  description_template: string;
+  expected_output: string;
+  async_execution: boolean;
+  execution_order: number;
+  is_active: boolean;
+  is_locked: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type TaskDefinitionListResponse = {
+  items: TaskDefinition[];
+  total: number;
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const MODEL_OVERRIDE_OPTIONS = ["", "llama3.2:3b", "llama3.1:8b", "llama3.1:70b"];
 
 export default function HomePage() {
   const [section, setSection] = useState<PortalSection>("intake");
@@ -81,10 +103,21 @@ export default function HomePage() {
   const [agentDefinitions, setAgentDefinitions] = useState<AgentDefinition[]>([]);
   const [agentDefinitionsLoading, setAgentDefinitionsLoading] = useState(false);
   const [agentDefinitionSaving, setAgentDefinitionSaving] = useState(false);
+  const [agentTasks, setAgentTasks] = useState<TaskDefinition[]>([]);
+  const [agentTasksLoading, setAgentTasksLoading] = useState(false);
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [taskReordering, setTaskReordering] = useState(false);
+  const [taskDeactivatingId, setTaskDeactivatingId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [taskName, setTaskName] = useState("");
+  const [taskDescriptionTemplate, setTaskDescriptionTemplate] = useState("");
+  const [taskExpectedOutput, setTaskExpectedOutput] = useState("");
+  const [taskAsyncExecution, setTaskAsyncExecution] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState("receptionist");
   const [agentRole, setAgentRole] = useState("");
   const [agentGoal, setAgentGoal] = useState("");
   const [agentBackstory, setAgentBackstory] = useState("");
+  const [agentModelOverride, setAgentModelOverride] = useState("");
 
   const currentRequestId = useMemo(
     () => result?.request_id || requestStatus?.request_id,
@@ -133,11 +166,169 @@ export default function HomePage() {
         setAgentRole(preferred.role);
         setAgentGoal(preferred.goal);
         setAgentBackstory(preferred.backstory);
+        setAgentModelOverride(preferred.llm_model_override || "");
+        await loadAgentTasks(preferred.agent_id);
       }
     } catch {
       // Keep UI responsive when definitions endpoint is unavailable.
     } finally {
       setAgentDefinitionsLoading(false);
+    }
+  };
+
+  const resetTaskForm = () => {
+    setEditingTaskId(null);
+    setTaskName("");
+    setTaskDescriptionTemplate("");
+    setTaskExpectedOutput("");
+    setTaskAsyncExecution(false);
+  };
+
+  const loadAgentTasks = async (agentId: string = selectedAgentId) => {
+    if (!agentId) {
+      return;
+    }
+
+    setAgentTasksLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents/${agentId}/tasks`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data: TaskDefinitionListResponse = await response.json();
+      const items = data.items || [];
+      setAgentTasks(items);
+      if (editingTaskId) {
+        const selected = items.find((item) => item.task_id === editingTaskId);
+        if (!selected) {
+          resetTaskForm();
+        }
+      }
+    } catch {
+      // Keep UI responsive when task endpoint is unavailable.
+    } finally {
+      setAgentTasksLoading(false);
+    }
+  };
+
+  const saveTaskDefinition = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedAgentId) {
+      return;
+    }
+
+    const payload = {
+      name: taskName,
+      description_template: taskDescriptionTemplate,
+      expected_output: taskExpectedOutput,
+      async_execution: taskAsyncExecution,
+    };
+
+    setTaskSaving(true);
+    setResult(null);
+    try {
+      const url = editingTaskId
+        ? `${API_BASE_URL}/agents/${selectedAgentId}/tasks/${editingTaskId}`
+        : `${API_BASE_URL}/agents/${selectedAgentId}/tasks`;
+      const method = editingTaskId ? "PATCH" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setResult({ error: data?.detail || "Task definition save failed" });
+      } else {
+        await loadAgentTasks(selectedAgentId);
+        if (!editingTaskId) {
+          resetTaskForm();
+        }
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Network error" });
+    } finally {
+      setTaskSaving(false);
+    }
+  };
+
+  const beginTaskEdit = (task: TaskDefinition) => {
+    setEditingTaskId(task.task_id);
+    setTaskName(task.name);
+    setTaskDescriptionTemplate(task.description_template);
+    setTaskExpectedOutput(task.expected_output);
+    setTaskAsyncExecution(task.async_execution);
+  };
+
+  const deactivateTaskDefinition = async (taskId: string) => {
+    if (!selectedAgentId) {
+      return;
+    }
+
+    setTaskDeactivatingId(taskId);
+    setResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents/${selectedAgentId}/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setResult({ error: data?.detail || "Task deactivation failed" });
+      } else {
+        await loadAgentTasks(selectedAgentId);
+        if (editingTaskId === taskId) {
+          resetTaskForm();
+        }
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Network error" });
+    } finally {
+      setTaskDeactivatingId(null);
+    }
+  };
+
+  const reorderTask = async (taskId: string, direction: "up" | "down") => {
+    if (!selectedAgentId || taskReordering) {
+      return;
+    }
+
+    const index = agentTasks.findIndex((item) => item.task_id === taskId);
+    if (index < 0) {
+      return;
+    }
+
+    const swapWith = direction === "up" ? index - 1 : index + 1;
+    if (swapWith < 0 || swapWith >= agentTasks.length) {
+      return;
+    }
+
+    const next = [...agentTasks];
+    const [moved] = next.splice(index, 1);
+    next.splice(swapWith, 0, moved);
+    const orderedTaskIds = next.map((item) => item.task_id);
+
+    setTaskReordering(true);
+    setResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/agents/${selectedAgentId}/tasks/reorder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ordered_task_ids: orderedTaskIds }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setResult({ error: data?.detail || "Task reorder failed" });
+      } else {
+        setAgentTasks(data.items || []);
+      }
+    } catch (error) {
+      setResult({ error: error instanceof Error ? error.message : "Network error" });
+    } finally {
+      setTaskReordering(false);
     }
   };
 
@@ -157,6 +348,7 @@ export default function HomePage() {
           role: agentRole,
           goal: agentGoal,
           backstory: agentBackstory,
+          llm_model_override: agentModelOverride || null,
         }),
       });
 
@@ -583,7 +775,10 @@ export default function HomePage() {
                           setAgentRole(selected.role);
                           setAgentGoal(selected.goal);
                           setAgentBackstory(selected.backstory);
+                          setAgentModelOverride(selected.llm_model_override || "");
                         }
+                        resetTaskForm();
+                        loadAgentTasks(nextId);
                       }}
                     >
                       {agentDefinitions.map((definition) => (
@@ -615,8 +810,138 @@ export default function HomePage() {
                       />
                     </label>
 
+                    <label className="field">
+                      LLM Model Override
+                      <select
+                        value={agentModelOverride}
+                        onChange={(event) => setAgentModelOverride(event.target.value)}
+                      >
+                        {MODEL_OVERRIDE_OPTIONS.map((option) => (
+                          <option key={option || "__default"} value={option}>
+                            {option || "Default (from backend config)"}
+                          </option>
+                        ))}
+                        {agentModelOverride && !MODEL_OVERRIDE_OPTIONS.includes(agentModelOverride) && (
+                          <option value={agentModelOverride}>{agentModelOverride}</option>
+                        )}
+                      </select>
+                    </label>
+
                     <button type="submit" className="primary" disabled={agentDefinitionSaving}>
                       {agentDefinitionSaving ? "Saving..." : "Save Definition"}
+                    </button>
+                  </form>
+
+                  <hr style={{ margin: "1.4rem 0", border: 0, borderTop: "1px solid var(--line)" }} />
+                  <h4>Agent Tasks</h4>
+                  <p className="helper">Tasks execute in ascending order and updates apply to new runs immediately.</p>
+
+                  <button type="button" className="secondary" onClick={() => loadAgentTasks(selectedAgentId)}>
+                    {agentTasksLoading ? "Refreshing Tasks..." : "Refresh Tasks"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    style={{ marginLeft: "0.6rem" }}
+                    onClick={resetTaskForm}
+                  >
+                    New Task
+                  </button>
+
+                  <table className="requests-table" style={{ marginTop: "1rem" }}>
+                    <thead>
+                      <tr>
+                        <th>Order</th>
+                        <th>Name</th>
+                        <th>Async</th>
+                        <th>Version</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {agentTasks.map((task, index) => (
+                        <tr key={task.task_id}>
+                          <td>{task.execution_order}</td>
+                          <td>{task.name}</td>
+                          <td>{task.async_execution ? "true" : "false"}</td>
+                          <td>{task.version}</td>
+                          <td>
+                            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                              <button type="button" className="secondary" onClick={() => beginTaskEdit(task)}>
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={index === 0 || taskReordering}
+                                onClick={() => reorderTask(task.task_id, "up")}
+                              >
+                                Up
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={index === agentTasks.length - 1 || taskReordering}
+                                onClick={() => reorderTask(task.task_id, "down")}
+                              >
+                                Down
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={taskDeactivatingId === task.task_id}
+                                onClick={() => deactivateTaskDefinition(task.task_id)}
+                              >
+                                {taskDeactivatingId === task.task_id ? "Deactivating..." : "Deactivate"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {agentTasks.length === 0 && (
+                        <tr>
+                          <td colSpan={5}>No active tasks found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  <form onSubmit={saveTaskDefinition} style={{ marginTop: "1rem" }}>
+                    <h4>{editingTaskId ? "Edit Task" : "Create Task"}</h4>
+                    <label className="field">
+                      Task Name
+                      <input value={taskName} onChange={(event) => setTaskName(event.target.value)} required />
+                    </label>
+                    <label className="field">
+                      Description Template
+                      <textarea
+                        value={taskDescriptionTemplate}
+                        onChange={(event) => setTaskDescriptionTemplate(event.target.value)}
+                        rows={7}
+                        required
+                      />
+                    </label>
+                    <label className="field">
+                      Expected Output
+                      <textarea
+                        value={taskExpectedOutput}
+                        onChange={(event) => setTaskExpectedOutput(event.target.value)}
+                        rows={3}
+                        required
+                      />
+                    </label>
+
+                    <label className="field" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <input
+                        type="checkbox"
+                        checked={taskAsyncExecution}
+                        onChange={(event) => setTaskAsyncExecution(event.target.checked)}
+                      />
+                      Run asynchronously (async_execution)
+                    </label>
+
+                    <button type="submit" className="primary" disabled={taskSaving}>
+                      {taskSaving ? "Saving Task..." : editingTaskId ? "Update Task" : "Create Task"}
                     </button>
                   </form>
                 </>

@@ -80,6 +80,7 @@ class AgentDefinitionResponse(BaseModel):
     role: str
     goal: str
     backstory: str
+    llm_model_override: str | None
     is_active: bool
     is_locked: bool
     version: int
@@ -99,3 +100,49 @@ class AgentDefinitionUpdate(BaseModel):
     role: str | None = Field(default=None, min_length=3)
     goal: str | None = Field(default=None, min_length=5)
     backstory: str | None = Field(default=None, min_length=10)
+    llm_model_override: str | None = Field(default=None, min_length=3)
+
+
+class TaskDefinitionResponse(BaseModel):
+    task_id: str
+    agent_id: str
+    name: str
+    description_template: str
+    expected_output: str
+    async_execution: bool
+    execution_order: int
+    is_active: bool
+    is_locked: bool
+    version: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TaskDefinitionListResponse(BaseModel):
+    items: list[TaskDefinitionResponse]
+    total: int
+
+
+class TaskDefinitionCreate(BaseModel):
+    task_id: str | None = Field(default=None, min_length=3, max_length=64)
+    name: str = Field(min_length=3, max_length=128)
+    description_template: str = Field(min_length=10)
+    expected_output: str = Field(min_length=5)
+    async_execution: bool = False
+    execution_order: int | None = Field(default=None, ge=1)
+
+
+class TaskDefinitionUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=3, max_length=128)
+    description_template: str | None = Field(default=None, min_length=10)
+    expected_output: str | None = Field(default=None, min_length=5)
+    async_execution: bool | None = None
+    execution_order: int | None = Field(default=None, ge=1)
+    is_active: bool | None = None
+
+
+class TaskDefinitionReorder(BaseModel):
+    ordered_task_ids: list[str] = Field(min_length=1)

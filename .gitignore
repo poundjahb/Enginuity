@@ -1,5 +1,28 @@
 .env
 __pycache__/
 *.pyc
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# External dependency binaries and build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+*.obj
+*.out
+*.bin
+
+# Local package/build directories
+bin/
+dist/
+build/
+
 node_modules/
 .next/

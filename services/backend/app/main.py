@@ -6,6 +6,7 @@ from app.config import settings
 from app.db import Base, engine
 from app.models import AgentDefinition
 from app.routes.agents import router as agents_router
+from app.routes.tasks import router as tasks_router
 from app.routes.requests import router as requests_router
 from app.services.health import check_ollama_health
 from app.agents.receptionist import (
@@ -13,6 +14,19 @@ from app.agents.receptionist import (
     DEFAULT_RECEPTIONIST_GOAL,
     DEFAULT_RECEPTIONIST_ROLE,
 )
+
+DEFAULT_RECEPTIONIST_TASK_ID = "receptionist-assessment"
+DEFAULT_RECEPTIONIST_TASK_NAME = "Assess Intake Request"
+DEFAULT_RECEPTIONIST_TASK_DESCRIPTION_TEMPLATE = (
+    "Assess the request and return ONLY compact JSON with these keys: "
+    "request_type, extracted_scope, confidence_score, clarification_questions, rationale_summary. "
+    "Set confidence_score from 0.0 to 1.0. If confidence_score < 0.7, return 2-3 short "
+    "targeted clarification_questions. Keep rationale_summary under 30 words.\n\n"
+    "raw_text: {raw_text}\n"
+    "business_context: {business_context}\n"
+    "priority_hint: {priority_hint}\n"
+)
+DEFAULT_RECEPTIONIST_TASK_EXPECTED_OUTPUT = "Compact single JSON object only. No markdown, no prose."
 
 app = FastAPI(title=settings.app_name)
 
@@ -63,9 +77,9 @@ def _seed_default_agent_definitions() -> None:
             text(
                 """
                 INSERT INTO agent_definitions (
-                    agent_id, name, role, goal, backstory, is_active, is_locked, version
+                    agent_id, name, role, goal, backstory, llm_model_override, is_active, is_locked, version
                 ) VALUES (
-                    :agent_id, :name, :role, :goal, :backstory, :is_active, :is_locked, :version
+                    :agent_id, :name, :role, :goal, :backstory, :llm_model_override, :is_active, :is_locked, :version
                 )
                 """
             ),
@@ -75,6 +89,108 @@ def _seed_default_agent_definitions() -> None:
                 "role": DEFAULT_RECEPTIONIST_ROLE,
                 "goal": DEFAULT_RECEPTIONIST_GOAL,
                 "backstory": DEFAULT_RECEPTIONIST_BACKSTORY,
+                "llm_model_override": None,
+                "is_active": True,
+                "is_locked": False,
+                "version": 1,
+            },
+        )
+
+
+def _ensure_agent_definitions_schema_columns() -> None:
+    inspector = inspect(engine)
+    if "agent_definitions" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("agent_definitions")}
+    expected_columns = {
+        "llm_model_override": "TEXT",
+    }
+
+    with engine.begin() as connection:
+        for column_name, column_type in expected_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(f"ALTER TABLE agent_definitions ADD COLUMN {column_name} {column_type}"))
+                existing_columns.add(column_name)
+
+
+def _ensure_task_definitions_schema_columns() -> None:
+    inspector = inspect(engine)
+    if "task_definitions" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("task_definitions")}
+    expected_columns = {
+        "agent_id": "VARCHAR(64)",
+        "name": "VARCHAR(128)",
+        "description_template": "TEXT",
+        "expected_output": "TEXT",
+        "async_execution": "BOOLEAN NOT NULL DEFAULT 0",
+        "execution_order": "INTEGER",
+        "is_active": "BOOLEAN",
+        "is_locked": "BOOLEAN",
+        "version": "INTEGER",
+    }
+
+    with engine.begin() as connection:
+        for column_name, column_type in expected_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(f"ALTER TABLE task_definitions ADD COLUMN {column_name} {column_type}"))
+                existing_columns.add(column_name)
+
+
+def _seed_default_task_definitions() -> None:
+    with engine.begin() as connection:
+        existing = connection.execute(
+            text(
+                """
+                SELECT task_id
+                FROM task_definitions
+                WHERE task_id = :task_id
+                  AND agent_id = :agent_id
+                """
+            ),
+            {"task_id": DEFAULT_RECEPTIONIST_TASK_ID, "agent_id": "receptionist"},
+        ).fetchone()
+        if existing:
+            return
+
+        connection.execute(
+            text(
+                """
+                INSERT INTO task_definitions (
+                    task_id,
+                    agent_id,
+                    name,
+                    description_template,
+                    expected_output,
+                    async_execution,
+                    execution_order,
+                    is_active,
+                    is_locked,
+                    version
+                ) VALUES (
+                    :task_id,
+                    :agent_id,
+                    :name,
+                    :description_template,
+                    :expected_output,
+                    :async_execution,
+                    :execution_order,
+                    :is_active,
+                    :is_locked,
+                    :version
+                )
+                """
+            ),
+            {
+                "task_id": DEFAULT_RECEPTIONIST_TASK_ID,
+                "agent_id": "receptionist",
+                "name": DEFAULT_RECEPTIONIST_TASK_NAME,
+                "description_template": DEFAULT_RECEPTIONIST_TASK_DESCRIPTION_TEMPLATE,
+                "expected_output": DEFAULT_RECEPTIONIST_TASK_EXPECTED_OUTPUT,
+                "async_execution": False,
+                "execution_order": 1,
                 "is_active": True,
                 "is_locked": False,
                 "version": 1,
@@ -86,7 +202,10 @@ def _seed_default_agent_definitions() -> None:
 async def on_startup():
     Base.metadata.create_all(bind=engine)
     _ensure_requests_schema_columns()
+    _ensure_agent_definitions_schema_columns()
+    _ensure_task_definitions_schema_columns()
     _seed_default_agent_definitions()
+    _seed_default_task_definitions()
     if settings.startup_fail_fast:
         healthy, error = await check_ollama_health()
         if not healthy:
@@ -119,3 +238,4 @@ async def dependency_health():
 
 app.include_router(requests_router)
 app.include_router(agents_router)
+app.include_router(tasks_router)

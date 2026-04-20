@@ -35,6 +35,24 @@ class AgentDefinition(Base):
     role = Column(Text, nullable=False)
     goal = Column(Text, nullable=False)
     backstory = Column(Text, nullable=False)
+    llm_model_override = Column(String(128), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    is_locked = Column(Boolean, nullable=False, default=False)
+    version = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class TaskDefinition(Base):
+    __tablename__ = "task_definitions"
+
+    task_id = Column(String(64), primary_key=True, index=True)
+    agent_id = Column(String(64), nullable=False, index=True)
+    name = Column(String(128), nullable=False)
+    description_template = Column(Text, nullable=False)
+    expected_output = Column(Text, nullable=False)
+    async_execution = Column(Boolean, nullable=False, default=False)
+    execution_order = Column(Integer, nullable=False, default=1)
     is_active = Column(Boolean, nullable=False, default=True)
     is_locked = Column(Boolean, nullable=False, default=False)
     version = Column(Integer, nullable=False, default=1)

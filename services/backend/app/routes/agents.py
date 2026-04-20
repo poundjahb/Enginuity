@@ -37,6 +37,8 @@ def update_agent_definition(agent_id: str, payload: AgentDefinitionUpdate, db: S
         raise HTTPException(status_code=403, detail="Agent definition is locked")
 
     updates = payload.model_dump(exclude_none=True)
+    if payload.llm_model_override == "":
+        updates["llm_model_override"] = None
     if not updates:
         raise HTTPException(status_code=400, detail="No fields provided for update")
 
